@@ -1,0 +1,80 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [ "main", "v[a-zA-Z0-9].[a-zA-Z0-9].[a-zA-Z0-9]" ]
+  pull_request:
+    branches: [ "main", "v[a-zA-Z0-9].[a-zA-Z0-9].[a-zA-Z0-9]" ]
+  release:
+    types: [ published ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    if: github.event_name == 'release'
+    name: Build release binary on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt update && sudo apt install -y build-essential make gcc
+
+      - name: Install dependencies
+        if: runner.os == 'macOS'
+        run: brew install make gcc
+
+      - name: Build release
+        run: make
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: combogen-${{ matrix.os }}
+          path: ${{ runner.os == 'Windows' && './build/combogen.exe' || './build/combogen' }}
+
+  publish-release:
+    if: github.event_name == 'release'
+    name: Publish release assets
+    needs: build-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: combogen-ubuntu-latest
+          path: ./artifacts/linux
+
+    #   - name: Download Windows artifact
+    #     uses: actions/download-artifact@v4
+    #     with:
+    #       name: combogen-windows-latest
+    #       path: ./artifacts/windows
+      
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: combogen-macos-latest
+          path: ./artifacts/macos
+
+      - name: Rename executables
+        run: |
+          mv ./artifacts/linux/combogen ./artifacts/linux/combogen-${{ github.event.release.tag_name }}-linux
+          mv ./artifacts/macos/combogen ./artifacts/macos/combogen-${{ github.event.release.tag_name }}-macos
+
+      - name: Publish release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} ./artifacts/linux/combogen-${{ github.event.release.tag_name }}-linux --clobber
+          gh release upload ${{ github.event.release.tag_name }} ./artifacts/macos/combogen-${{ github.event.release.tag_name }}-macos --clobber

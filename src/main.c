@@ -7,11 +7,21 @@
 
 #define INITIAL_BUFFER_CAP 1024
 
+#define VERSION_MAJOR 1 
+#define VERSION_MINOR 0
+#define VERSION_PATCH 0
+
 /* Parse command-line arguments and detect if -a flag is set */
 static int parse_arguments(int argc, char **argv, int *all_permutations, int *first_arg)
 {
     *all_permutations = 0;
     *first_arg = 1;
+
+    // Temporary print version
+    if (argc > 1 && (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0)) {
+        printf("combogen v%d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
+        return 0;
+    }
 
     if (argc > 1 && strcmp(argv[1], "-a") == 0) {
         *all_permutations = 1;
